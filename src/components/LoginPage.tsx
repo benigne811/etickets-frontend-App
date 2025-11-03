@@ -7,59 +7,53 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Shield, LogIn, UserPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Employee } from "./EmployeeDialog";
-import { Customer } from "./CustomerDialog";
 
 interface LoginPageProps {
-  onLogin: (email: string, password: any , role: "admin" | "employee" | "customer") => void;
-  onSignup: (userData: any, role: "employee" | "customer") => void;
+  onLogin: (email: string, password: string, role: "admin" | "employee") => void;
+  onSignup: (userData: any, role: "employee") => void;
   employees: Employee[];
-  customers: Customer[];
 }
 
-export function LoginPage({ onLogin, onSignup, employees, customers }: LoginPageProps) {
+export function LoginPage({ onLogin, onSignup, employees }: LoginPageProps) {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   
-  // Login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [loginRole, setLoginRole] = useState<"admin" | "employee" | "customer">("admin");
+  const [loginRole, setLoginRole] = useState<"admin" | "employee">("admin");
   
-  // Signup state
-  const [signupRole, setSignupRole] = useState<"employee" | "customer">("employee");
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
+  const [signupDepartment, setSignupDepartment] = useState("");
+  const [signupRoleTitle, setSignupRoleTitle] = useState("");
   
   const [error, setError] = useState("");
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
-    if (!loginEmail || !loginPassword) {
-      setError("Please Check If you entered the right email and password");
-      return;
-    }
+    try {
+      if (!loginEmail.trim() || !loginPassword.trim()) {
+        setError("Please enter both email and password");
+        return;
+      }
 
-    // Check if user exists in the system
-    if (loginRole === "admin") {
-      // Allow admin login with any credentials (you can add proper admin validation)
-      onLogin(loginEmail, loginPassword, "admin");
-    } else if (loginRole === "employee") {
-      const employeeExists = employees.find(e => e.email === loginEmail);
-      if (!employeeExists) {
-        setError("No account found with this email. Please sign up first.");
+      if (!validateEmail(loginEmail)) {
+        setError("Please enter a valid email address");
         return;
       }
-      onLogin(loginEmail, loginPassword, "employee");
-    } else if (loginRole === "customer") {
-      const customerExists = customers.find(c => c.email === loginEmail);
-      if (!customerExists) {
-        setError("No account found with this email. Please sign up first.");
-        return;
-      }
-      onLogin(loginEmail, loginPassword, "customer");
+
+      onLogin(loginEmail, loginPassword, loginRole);
+    } catch (err) {
+      setError("An error occurred during login. Please try again.");
+      console.error("Login error:", err);
     }
   };
 
@@ -67,50 +61,54 @@ export function LoginPage({ onLogin, onSignup, employees, customers }: LoginPage
     e.preventDefault();
     setError("");
     
-    if (!signupName || !signupEmail || !signupPassword || !signupPhone) {
-      setError("Please fill in all required fields");
-      return;
+    try {
+      if (!signupName.trim() || !signupEmail.trim() || !signupPassword.trim() || !signupPhone.trim() || !signupDepartment.trim() || !signupRoleTitle.trim()) {
+        setError("Please fill in all required fields");
+        return;
+      }
+
+      if (!validateEmail(signupEmail)) {
+        setError("Please enter a valid email address");
+        return;
+      }
+
+      if (signupPassword.length < 6) {
+        setError("Password must be at least 6 characters long");
+        return;
+      }
+
+      const emailExists = employees.find(e => e.email.toLowerCase() === signupEmail.toLowerCase());
+      
+      if (emailExists) {
+        setError("An account with this email already exists");
+        return;
+      }
+
+      const userData = {
+        name: signupName.trim(),
+        email: signupEmail.trim().toLowerCase(),
+        password: signupPassword,
+        phone: signupPhone.trim(),
+        department: signupDepartment,
+        role: signupRoleTitle.trim(),
+        status: "Active" as const,
+      };
+
+      onSignup(userData, "employee");
+      
+      setSignupName("");
+      setSignupEmail("");
+      setSignupPassword("");
+      setSignupPhone("");
+      setSignupDepartment("");
+      setSignupRoleTitle("");
+      
+      setActiveTab("login");
+      setError("");
+    } catch (err) {
+      setError("An error occurred during signup. Please try again.");
+      console.error("Signup error:", err);
     }
-
-    // Check if email already exists
-    const emailExists = signupRole === "employee" 
-      ? employees.find(e => e.email === signupEmail)
-      : customers.find(c => c.email === signupEmail);
-    
-    if (emailExists) {
-      setError("An account with this email already exists");
-      return;
-    }
-
-    const userData = signupRole === "employee" 
-      ? {
-          name: signupName,
-          email: signupEmail,
-          password: signupPassword,
-          phone: signupPhone,
-          status: "Active" as const,
-        }
-      : {
-          name: signupName,
-          email: signupEmail,
-          password: signupPassword,
-          phone: signupPhone,
-          plan: "Free" as const,
-          status: "Active" as const,
-        };
-
-    onSignup(userData, signupRole);
-    
-    // Reset form
-    setSignupName("");
-    setSignupEmail("");
-    setSignupPassword("");
-    setSignupPhone("");
-    
-    // Switch to login tab
-    setActiveTab("login");
-    setError("");
-    alert(`Account created successfully! You can now log in.`);
   };
 
   return (
@@ -139,6 +137,19 @@ export function LoginPage({ onLogin, onSignup, employees, customers }: LoginPage
           {/* Login Tab */}
           <TabsContent value="login">
             <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-role">Role</Label>
+                <Select value={loginRole} onValueChange={(value: "admin" | "employee") => setLoginRole(value)}>
+                  <SelectTrigger className="border-gray-300 dark:border-gray-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="employee">Employee</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="login-email">Email</Label>
                 <Input
@@ -181,21 +192,11 @@ export function LoginPage({ onLogin, onSignup, employees, customers }: LoginPage
           <TabsContent value="signup">
             <form onSubmit={handleSignupSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-name">First Name *</Label>
+                <Label htmlFor="signup-name">Full Name *</Label>
                 <Input
                   id="signup-name"
                   type="text"
-                  placeholder="Enter your first name"
-                  value={signupName}
-                  onChange={(e) => setSignupName(e.target.value)}
-                  className="border-gray-300 dark:border-gray-700"
-                  required
-                />
-                <Label htmlFor="signup-name">Second Name *</Label>
-                <Input
-                  id="signup-name"
-                  type="text"
-                  placeholder="Enter your Second name"
+                  placeholder="John Doe"
                   value={signupName}
                   onChange={(e) => setSignupName(e.target.value)}
                   className="border-gray-300 dark:border-gray-700"
@@ -221,11 +222,12 @@ export function LoginPage({ onLogin, onSignup, employees, customers }: LoginPage
                 <Input
                   id="signup-password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="Enter your password (min. 6 characters)"
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value)}
                   className="border-gray-300 dark:border-gray-700"
                   required
+                  minLength={6}
                 />
               </div>
               
@@ -234,9 +236,42 @@ export function LoginPage({ onLogin, onSignup, employees, customers }: LoginPage
                 <Input
                   id="signup-phone"
                   type="tel"
-                  placeholder="Enter your phone number"
+                  placeholder="+1 234 567 8900"
                   value={signupPhone}
                   onChange={(e) => setSignupPhone(e.target.value)}
+                  className="border-gray-300 dark:border-gray-700"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-department">Department *</Label>
+                <Select 
+                  value={signupDepartment} 
+                  onValueChange={setSignupDepartment}
+                  required
+                >
+                  <SelectTrigger className="border-gray-300 dark:border-gray-700">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Engineering">Engineering</SelectItem>
+                    <SelectItem value="Support">Support</SelectItem>
+                    <SelectItem value="Sales">Sales</SelectItem>
+                    <SelectItem value="Marketing">Marketing</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-role">Role *</Label>
+                <Input
+                  id="signup-role"
+                  type="text"
+                  placeholder="Senior Developer"
+                  value={signupRoleTitle}
+                  onChange={(e) => setSignupRoleTitle(e.target.value)}
                   className="border-gray-300 dark:border-gray-700"
                   required
                 />

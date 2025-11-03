@@ -1,71 +1,95 @@
 import { useState, useEffect } from "react";
-import {
-  TicketDialog,
-  Ticket,
-} from "./components/TicketDialog";
-import {
-  Employee,
-  EmployeeDialog,
-} from "./components/EmployeeDialog";
-import {
-  Customer,
-  CustomerDialog,
-} from "./components/CustomerDialog";
+import { TicketDialog, Ticket } from "./components/TicketDialog";
+import { Employee, EmployeeDialog } from "./components/EmployeeDialog";
 import { CreateTicketDialog } from "./components/CreateTicketDialog";
 import { LoginPage } from "./components/LoginPage";
 import { EmployeeDashboard } from "./components/EmployeeDashboard";
-import { CustomerDashboard } from "./components/CustomerDashboard";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { RealDashboardPage } from "./components/pages/RealDashboardPage";
 import { TicketsPage } from "./components/pages/TicketsPage";
 import { EmployeesPage } from "./components/pages/EmployeesPage";
-import { CustomersPage } from "./components/pages/CustomersPage";
 import { SettingsPage } from "./components/pages/SettingsPage";
+import {
+  getTickets,
+  saveTickets,
+  getEmployees,
+  saveEmployees,
+  getCurrentUser,
+  saveCurrentUser,
+  getIsAuthenticated,
+  saveIsAuthenticated,
+  clearAuth,
+  verifyUserCredential,
+  findUserByEmail,
+  addUserCredential,
+} from "./utils/storage";
+import { toast } from "sonner";
+import { Toaster } from "./components/ui/sonner";
 
 interface User {
   email: string;
-  role: "admin" | "employee" | "customer";
-  data: Employee | Customer | null;
+  role: "admin" | "employee";
+  data: Employee | null;
 }
 
 export default function App() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const [currentUser, setCurrentUser] = useState<User | null>(
-    null,
-  );
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const [selectedTicket, setSelectedTicket] =
-    useState<Ticket | null>(null);
-  const [isTicketDialogOpen, setIsTicketDialogOpen] =
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
+  const [isCreateTicketDialogOpen, setIsCreateTicketDialogOpen] =
     useState(false);
-  const [
-    isCreateTicketDialogOpen,
-    setIsCreateTicketDialogOpen,
-  ] = useState(false);
 
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<Employee | null>(null);
-  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] =
-    useState(false);
-  const [employeeDialogMode, setEmployeeDialogMode] = useState<
-    "add" | "edit"
-  >("add");
-
-  const [selectedCustomer, setSelectedCustomer] =
-    useState<Customer | null>(null);
-  const [isCustomerDialogOpen, setIsCustomerDialogOpen] =
-    useState(false);
-  const [customerDialogMode, setCustomerDialogMode] = useState<
-    "add" | "edit"
-  >("add");
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null
+  );
+  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
+  const [employeeDialogMode, setEmployeeDialogMode] = useState<"add" | "edit">(
+    "add"
+  );
 
   const [activePage, setActivePage] = useState("dashboard");
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedTickets = getTickets();
+      const savedEmployees = getEmployees();
+      const savedUser = getCurrentUser();
+      const savedAuth = getIsAuthenticated();
+
+      const adminEmail = "benigne811@gmail.com";
+      const adminPassword = "123456";
+      const adminExists = findUserByEmail(adminEmail);
+
+      if (!adminExists) {
+        addUserCredential({
+          email: adminEmail.toLowerCase(),
+          password: adminPassword,
+          role: "admin",
+        });
+      }
+
+      if (savedTickets.length > 0) {
+        setTickets(savedTickets);
+      }
+      if (savedEmployees.length > 0) {
+        setEmployees(savedEmployees);
+      }
+      if (savedUser && savedAuth) {
+        setCurrentUser(savedUser);
+        setIsAuthenticated(savedAuth);
+      }
+    } catch (error) {
+      console.error("Error loading data from storage:", error);
+      toast.error("Failed to load saved data");
+    }
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -75,80 +99,144 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Login handler
+  useEffect(() => {
+    try {
+      saveTickets(tickets);
+    } catch (error) {
+      console.error("Error saving tickets:", error);
+      toast.error("Failed to save tickets");
+    }
+  }, [tickets]);
+
+  useEffect(() => {
+    try {
+      saveEmployees(employees);
+    } catch (error) {
+      console.error("Error saving employees:", error);
+      toast.error("Failed to save employees");
+    }
+  }, [employees]);
+
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        saveCurrentUser(currentUser);
+      }
+      saveIsAuthenticated(isAuthenticated);
+    } catch (error) {
+      console.error("Error saving auth state:", error);
+    }
+  }, [currentUser, isAuthenticated]);
+
   const handleLogin = (
     email: string,
     password: string,
-    role: "admin" | "employee" | "customer",
+    role: "admin" | "employee"
   ) => {
-    // Authentication with validation
-    if (role === "admin") {
-      // Simple admin check - you can enhance this
-      setCurrentUser({ email, role: "admin", data: null });
-      setIsAuthenticated(true);
-    } else if (role === "employee") {
-      const employee = employees.find((e) => e.email === email);
-      if (employee) {
-        setCurrentUser({
+    try {
+      if (role === "admin") {
+        const credential = verifyUserCredential(email, password);
+        if (!credential || credential.role !== "admin") {
+          toast.error("Login failed: Wrong email or password");
+          return;
+        }
+        const user: User = { email, role: "admin", data: null };
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        toast.success("Logged in as admin");
+      } else if (role === "employee") {
+        const credential = verifyUserCredential(email, password);
+        if (!credential || credential.role !== "employee") {
+          toast.error("Login failed: Wrong email or password");
+          return;
+        }
+
+        const employee = employees.find(
+          (e) => e.email.toLowerCase() === email.toLowerCase()
+        );
+        if (!employee) {
+          toast.error("Login failed: Wrong email or password");
+          return;
+        }
+
+        const user: User = {
           email,
           role: "employee",
           data: employee,
-        });
+        };
+        setCurrentUser(user);
         setIsAuthenticated(true);
+        toast.success(`Welcome back, ${employee.name}!`);
       }
-    } else if (role === "customer") {
-      const customer = customers.find((c) => c.email === email);
-      if (customer) {
-        setCurrentUser({
-          email,
-          role: "customer",
-          data: customer,
-        });
-        setIsAuthenticated(true);
-      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An error occurred during login");
     }
   };
 
-  // Signup handler
-  const handleSignup = (
-    userData: any,
-    role: "employee" | "customer",
-  ) => {
-    if (role === "employee") {
-      const newEmployee: Employee = {
-        ...userData,
-        id: `E${String(employees.length + 1).padStart(3, "0")}`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.name}`,
-        assignedTickets: 0,
-      };
-      setEmployees([...employees, newEmployee]);
-    } else if (role === "customer") {
-      const newCustomer: Customer = {
-        ...userData,
-        id: `C${String(customers.length + 1).padStart(3, "0")}`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.name}`,
-        joinedDate: new Date().toISOString().split("T")[0],
-        totalTickets: 0,
-      };
-      setCustomers([...customers, newCustomer]);
+  const handleSignup = (userData: any, role: "employee") => {
+    try {
+      if (role === "employee") {
+        const emailExists = employees.find(
+          (e) => e.email.toLowerCase() === userData.email.toLowerCase()
+        );
+        if (emailExists) {
+          toast.error("An account with this email already exists");
+          return;
+        }
+
+        const credentialExists = findUserByEmail(userData.email);
+        if (credentialExists) {
+          toast.error("An account with this email already exists");
+          return;
+        }
+
+        const newEmployee: Employee = {
+          ...userData,
+          id: `E${String(employees.length + 1).padStart(3, "0")}`,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.name}`,
+          assignedTickets: 0,
+        };
+
+        const updatedEmployees = [...employees, newEmployee];
+        setEmployees(updatedEmployees);
+        saveEmployees(updatedEmployees);
+
+        addUserCredential({
+          email: userData.email.toLowerCase(),
+          password: userData.password,
+          role: "employee",
+        });
+
+        toast.success("Account created successfully! You can now log in.");
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error("An error occurred during signup");
     }
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setActivePage("dashboard");
+    try {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setActivePage("dashboard");
+      clearAuth();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("An error occurred during logout");
+    }
   };
 
-  // Ticket handlers
   const handleTicketClick = (ticket: Ticket) => {
     setSelectedTicket(ticket);
     setIsTicketDialogOpen(true);
   };
 
   const handleUpdateTicket = (updatedTicket: Ticket) => {
-    setTickets(
-      tickets.map((t) =>
+    try {
+      const updatedTickets = tickets.map((t) =>
         t.id === updatedTicket.id
           ? {
               ...updatedTicket,
@@ -163,147 +251,125 @@ export default function App() {
                 })
                 .replace(",", ""),
             }
-          : t,
-      ),
-    );
+          : t
+      );
+      setTickets(updatedTickets);
+      saveTickets(updatedTickets);
+      toast.success("Ticket updated successfully");
+    } catch (error) {
+      console.error("Error updating ticket:", error);
+      toast.error("Failed to update ticket");
+    }
   };
 
-  const handleAssignTicket = (
-    ticketId: string,
-    employeeName: string,
-  ) => {
-    setTickets(
-      tickets.map((t) => {
+  const handleAssignTicket = (ticketId: string, employeeName: string) => {
+    try {
+      const updatedTickets = tickets.map((t) => {
         if (t.id === ticketId) {
-          // Update employee ticket counts
-          if (
-            t.assignee !== "Unassigned" &&
-            t.assignee !== employeeName
-          ) {
-            const oldEmployee = employees.find(
-              (e) => e.name === t.assignee,
-            );
+          if (t.assignee !== "Unassigned" && t.assignee !== employeeName) {
+            const oldEmployee = employees.find((e) => e.name === t.assignee);
             if (oldEmployee) {
-              setEmployees(
-                employees.map((e) =>
-                  e.id === oldEmployee.id
-                    ? {
-                        ...e,
-                        assignedTickets: e.assignedTickets - 1,
-                      }
-                    : e,
-                ),
+              const updatedEmployees = employees.map((e) =>
+                e.id === oldEmployee.id
+                  ? {
+                      ...e,
+                      assignedTickets: Math.max(0, e.assignedTickets - 1),
+                    }
+                  : e
               );
+              setEmployees(updatedEmployees);
+              saveEmployees(updatedEmployees);
             }
           }
 
           if (employeeName !== "Unassigned") {
-            const newEmployee = employees.find(
-              (e) => e.name === employeeName,
-            );
+            const newEmployee = employees.find((e) => e.name === employeeName);
             if (newEmployee) {
-              setEmployees(
-                employees.map((e) =>
-                  e.id === newEmployee.id
-                    ? {
-                        ...e,
-                        assignedTickets: e.assignedTickets + 1,
-                      }
-                    : e,
-                ),
+              const updatedEmployees = employees.map((e) =>
+                e.id === newEmployee.id
+                  ? {
+                      ...e,
+                      assignedTickets: e.assignedTickets + 1,
+                    }
+                  : e
               );
+              setEmployees(updatedEmployees);
+              saveEmployees(updatedEmployees);
             }
           }
 
           return {
             ...t,
             assignee: employeeName,
-            status:
-              employeeName === "Unassigned"
-                ? "Open"
-                : "In Progress",
+            status: employeeName === "Unassigned" ? "Open" : "In Progress",
+            updatedAt: new Date()
+              .toLocaleString("en-US", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })
+              .replace(",", ""),
           };
         }
         return t;
-      }),
-    );
+      });
+      setTickets(updatedTickets);
+      saveTickets(updatedTickets);
+      toast.success("Ticket assigned successfully");
+    } catch (error) {
+      console.error("Error assigning ticket:", error);
+      toast.error("Failed to assign ticket");
+    }
   };
 
   const handleCreateTicket = (ticketData: {
     title: string;
     description: string;
     priority: string;
-    customerId: string;
+    reporter: string;
   }) => {
-    const customer = customers.find(
-      (c) => c.id === ticketData.customerId,
-    );
-    if (!customer) return;
+    try {
+      if (
+        !ticketData.reporter ||
+        !ticketData.title ||
+        !ticketData.description
+      ) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
 
-    const now = new Date();
-    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const now = new Date();
+      const formattedDate = `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(
+        now.getHours()
+      ).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-    const newTicket: Ticket = {
-      id: `T-${String(tickets.length + 1).padStart(3, "0")}`,
-      title: ticketData.title,
-      description: ticketData.description,
-      status: "Open",
-      priority: ticketData.priority,
-      assignee: "Unassigned",
-      reporter: customer.name,
-      createdAt: formattedDate,
-      updatedAt: formattedDate,
-    };
+      const newTicket: Ticket = {
+        id: `T-${String(tickets.length + 1).padStart(3, "0")}`,
+        title: ticketData.title.trim(),
+        description: ticketData.description.trim(),
+        status: "Open",
+        priority: ticketData.priority,
+        assignee: "Unassigned",
+        reporter: ticketData.reporter.trim(),
+        createdAt: formattedDate,
+        updatedAt: formattedDate,
+      };
 
-    setTickets([newTicket, ...tickets]);
-
-    // Update customer ticket count
-    setCustomers(
-      customers.map((c) =>
-        c.id === ticketData.customerId
-          ? { ...c, totalTickets: c.totalTickets + 1 }
-          : c,
-      ),
-    );
+      const updatedTickets = [newTicket, ...tickets];
+      setTickets(updatedTickets);
+      saveTickets(updatedTickets);
+      toast.success("Ticket created successfully");
+    } catch (error) {
+      console.error("Error creating ticket:", error);
+      toast.error("Failed to create ticket");
+    }
   };
 
-  // Customer creates ticket (from customer dashboard)
-  const handleCustomerCreateTicket = (ticketData: {
-    title: string;
-    description: string;
-    priority: string;
-  }) => {
-    if (!currentUser || currentUser.role !== "customer") return;
-    const customer = currentUser.data as Customer;
-
-    const now = new Date();
-    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-
-    const newTicket: Ticket = {
-      id: `T-${String(tickets.length + 1).padStart(3, "0")}`,
-      title: ticketData.title,
-      description: ticketData.description,
-      status: "Open",
-      priority: ticketData.priority,
-      assignee: "Unassigned",
-      reporter: customer.name,
-      createdAt: formattedDate,
-      updatedAt: formattedDate,
-    };
-
-    setTickets([newTicket, ...tickets]);
-
-    // Update customer ticket count
-    setCustomers(
-      customers.map((c) =>
-        c.id === customer.id
-          ? { ...c, totalTickets: c.totalTickets + 1 }
-          : c,
-      ),
-    );
-  };
-
-  // Employee handlers
   const handleAddEmployee = () => {
     setSelectedEmployee(null);
     setEmployeeDialogMode("add");
@@ -317,128 +383,93 @@ export default function App() {
   };
 
   const handleSaveEmployee = (
-    employeeData: Omit<
-      Employee,
-      "id" | "avatar" | "assignedTickets"
-    > & { id?: string },
+    employeeData: Omit<Employee, "id" | "avatar" | "assignedTickets"> & {
+      id?: string;
+    }
   ) => {
-    if (employeeData.id) {
-      // Edit existing
-      setEmployees(
-        employees.map((e) =>
-          e.id === employeeData.id
-            ? { ...e, ...employeeData }
-            : e,
-        ),
-      );
-    } else {
-      // Add new
-      const newEmployee: Employee = {
-        ...employeeData,
-        id: `E${String(employees.length + 1).padStart(3, "0")}`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${employeeData.name}`,
-        assignedTickets: 0,
-      };
-      setEmployees([...employees, newEmployee]);
+    try {
+      if (!employeeData.name || !employeeData.email || !employeeData.phone) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
+
+      if (employeeData.id) {
+        const updatedEmployees = employees.map((e) =>
+          e.id === employeeData.id ? { ...e, ...employeeData } : e
+        );
+        setEmployees(updatedEmployees);
+        saveEmployees(updatedEmployees);
+        toast.success("Employee updated successfully");
+      } else {
+        const emailExists = employees.find(
+          (e) => e.email.toLowerCase() === employeeData.email.toLowerCase()
+        );
+        if (emailExists) {
+          toast.error("An employee with this email already exists");
+          return;
+        }
+
+        const newEmployee: Employee = {
+          ...employeeData,
+          id: `E${String(employees.length + 1).padStart(3, "0")}`,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${employeeData.name}`,
+          assignedTickets: 0,
+        };
+        const updatedEmployees = [...employees, newEmployee];
+        setEmployees(updatedEmployees);
+        saveEmployees(updatedEmployees);
+        toast.success("Employee added successfully");
+      }
+    } catch (error) {
+      console.error("Error saving employee:", error);
+      toast.error("Failed to save employee");
     }
   };
 
   const handleDeleteEmployee = (employeeId: string) => {
-    if (
-      confirm("Are you sure you want to delete this employee?")
-    ) {
-      const employee = employees.find(
-        (e) => e.id === employeeId,
-      );
-      if (employee) {
-        // Unassign their tickets
-        setTickets(
-          tickets.map((t) =>
-            t.assignee === employee.name
-              ? { ...t, assignee: "Unassigned", status: "Open" }
-              : t,
-          ),
-        );
+    try {
+      const employee = employees.find((e) => e.id === employeeId);
+      if (!employee) {
+        toast.error("Employee not found");
+        return;
       }
-      setEmployees(
-        employees.filter((e) => e.id !== employeeId),
-      );
+
+      if (
+        window.confirm(
+          "Are you sure you want to delete this employee? This will unassign all their tickets."
+        )
+      ) {
+        const updatedTickets = tickets.map((t) =>
+          t.assignee === employee.name
+            ? { ...t, assignee: "Unassigned", status: "Open" }
+            : t
+        );
+        setTickets(updatedTickets);
+        saveTickets(updatedTickets);
+
+        const updatedEmployees = employees.filter((e) => e.id !== employeeId);
+        setEmployees(updatedEmployees);
+        saveEmployees(updatedEmployees);
+        toast.success("Employee deleted successfully");
+      }
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      toast.error("Failed to delete employee");
     }
   };
 
-  // Customer handlers
-  const handleAddCustomer = () => {
-    setSelectedCustomer(null);
-    setCustomerDialogMode("add");
-    setIsCustomerDialogOpen(true);
-  };
-
-  const handleEditCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    setCustomerDialogMode("edit");
-    setIsCustomerDialogOpen(true);
-  };
-
-  const handleSaveCustomer = (
-    customerData: Omit<
-      Customer,
-      "id" | "avatar" | "joinedDate" | "totalTickets"
-    > & { id?: string },
-  ) => {
-    if (customerData.id) {
-      // Edit existing
-      setCustomers(
-        customers.map((c) =>
-          c.id === customerData.id
-            ? { ...c, ...customerData }
-            : c,
-        ),
-      );
-    } else {
-      // Add new
-      const newCustomer: Customer = {
-        ...customerData,
-        id: `C${String(customers.length + 1).padStart(3, "0")}`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${customerData.name}`,
-        joinedDate: new Date().toISOString().split("T")[0],
-        totalTickets: 0,
-      };
-      setCustomers([...customers, newCustomer]);
-    }
-  };
-
-  const handleDeleteCustomer = (customerId: string) => {
-    if (
-      confirm("Are you sure you want to delete this customer?")
-    ) {
-      setCustomers(
-        customers.filter((c) => c.id !== customerId),
-      );
-    }
-  };
-
-  // Admin page rendering
   const renderAdminPage = () => {
     switch (activePage) {
       case "dashboard":
-        return (
-          <RealDashboardPage
-            tickets={tickets}
-            employees={employees}
-            customers={customers}
-          />
-        );
+        return <RealDashboardPage tickets={tickets} employees={employees} />;
       case "tickets":
         return (
           <TicketsPage
             tickets={tickets}
             employees={employees}
-            customers={customers}
             onTicketClick={handleTicketClick}
             onAssignTicket={handleAssignTicket}
-            onCreateTicketClick={() =>
-              setIsCreateTicketDialogOpen(true)
-            }
+            onCreateTicketClick={() => setIsCreateTicketDialogOpen(true)}
           />
         );
       case "employees":
@@ -450,120 +481,81 @@ export default function App() {
             onDeleteClick={handleDeleteEmployee}
           />
         );
-      case "customers":
-        return (
-          <CustomersPage
-            customers={customers}
-            onAddClick={handleAddCustomer}
-            onEditClick={handleEditCustomer}
-            onDeleteClick={handleDeleteCustomer}
-          />
-        );
       case "settings":
         return <SettingsPage />;
       default:
-        return (
-          <RealDashboardPage
-            tickets={tickets}
-            employees={employees}
-            customers={customers}
-          />
-        );
+        return <RealDashboardPage tickets={tickets} employees={employees} />;
     }
   };
 
-  // Show login page if not authenticated
   if (!isAuthenticated) {
     return (
-      <LoginPage 
-        onLogin={handleLogin} 
-        onSignup={handleSignup}
-        employees={employees}
-        customers={customers}
-      />
+      <>
+        <Toaster />
+        <LoginPage
+          onLogin={handleLogin}
+          onSignup={handleSignup}
+          employees={employees}
+        />
+      </>
     );
   }
 
-  // Employee Dashboard
   if (currentUser?.role === "employee") {
     return (
-      <EmployeeDashboard
-        employee={currentUser.data as Employee}
-        tickets={tickets}
-        onUpdateTicket={handleUpdateTicket}
-        onLogout={handleLogout}
-        isDarkMode={isDarkMode}
-        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
-      />
-    );
-  }
-
-  // Customer Dashboard
-  if (currentUser?.role === "customer") {
-    return (
-      <CustomerDashboard
-        customer={currentUser.data as Customer}
-        tickets={tickets}
-        onCreateTicket={handleCustomerCreateTicket}
-        onLogout={handleLogout}
-        isDarkMode={isDarkMode}
-        onThemeToggle={() => setIsDarkMode(!isDarkMode)}
-      />
-    );
-  }
-
-  // Admin Dashboard
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        activePage={activePage}
-        onPageChange={setActivePage}
-      />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar
+      <>
+        <Toaster />
+        <EmployeeDashboard
+          employee={currentUser.data as Employee}
+          tickets={tickets}
+          onUpdateTicket={handleUpdateTicket}
+          onLogout={handleLogout}
           isDarkMode={isDarkMode}
           onThemeToggle={() => setIsDarkMode(!isDarkMode)}
         />
+      </>
+    );
+  }
 
-        <main className="flex-1 overflow-y-auto">
-          {renderAdminPage()}
-        </main>
+  return (
+    <>
+      <Toaster />
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar activePage={activePage} onPageChange={setActivePage} />
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <TopBar
+            isDarkMode={isDarkMode}
+            onThemeToggle={() => setIsDarkMode(!isDarkMode)}
+            onLogout={handleLogout}
+          />
+
+          <main className="flex-1 overflow-y-auto">{renderAdminPage()}</main>
+        </div>
+
+        <TicketDialog
+          ticket={selectedTicket}
+          open={isTicketDialogOpen}
+          onOpenChange={setIsTicketDialogOpen}
+          onUpdate={handleUpdateTicket}
+          employees={employees}
+        />
+
+        <CreateTicketDialog
+          open={isCreateTicketDialogOpen}
+          onOpenChange={setIsCreateTicketDialogOpen}
+          employees={employees}
+          onCreateTicket={handleCreateTicket}
+        />
+
+        <EmployeeDialog
+          open={isEmployeeDialogOpen}
+          onOpenChange={setIsEmployeeDialogOpen}
+          employee={selectedEmployee}
+          onSave={handleSaveEmployee}
+          mode={employeeDialogMode}
+        />
       </div>
-
-      {/* Ticket Dialog */}
-      <TicketDialog
-        ticket={selectedTicket}
-        open={isTicketDialogOpen}
-        onOpenChange={setIsTicketDialogOpen}
-        onUpdate={handleUpdateTicket}
-      />
-
-      {/* Create Ticket Dialog */}
-      <CreateTicketDialog
-        open={isCreateTicketDialogOpen}
-        onOpenChange={setIsCreateTicketDialogOpen}
-        customers={customers}
-        onCreateTicket={handleCreateTicket}
-      />
-
-      {/* Employee Dialog */}
-      <EmployeeDialog
-        open={isEmployeeDialogOpen}
-        onOpenChange={setIsEmployeeDialogOpen}
-        employee={selectedEmployee}
-        onSave={handleSaveEmployee}
-        mode={employeeDialogMode}
-      />
-
-      {/* Customer Dialog */}
-      <CustomerDialog
-        open={isCustomerDialogOpen}
-        onOpenChange={setIsCustomerDialogOpen}
-        customer={selectedCustomer}
-        onSave={handleSaveCustomer}
-        mode={customerDialogMode}
-      />
-    </div>
+    </>
   );
 }

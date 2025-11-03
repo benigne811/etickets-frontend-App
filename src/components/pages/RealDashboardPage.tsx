@@ -2,16 +2,14 @@ import { Users, Ticket, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Employee } from "../EmployeeDialog";
-import { Customer } from "../CustomerDialog";
 import { Ticket as TicketType } from "../TicketDialog";
 
 interface RealDashboardPageProps {
   tickets: TicketType[];
   employees: Employee[];
-  customers: Customer[];
 }
 
-export function RealDashboardPage({ tickets, employees, customers }: RealDashboardPageProps) {
+export function RealDashboardPage({ tickets, employees }: RealDashboardPageProps) {
   const totalTickets = tickets.length;
   const pendingTickets = tickets.filter(t => t.status === "Open").length;
   const inProgressTickets = tickets.filter(t => t.status === "In Progress").length;
@@ -106,18 +104,6 @@ export function RealDashboardPage({ tickets, employees, customers }: RealDashboa
 
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-gray-700 dark:bg-gray-300 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-white dark:text-gray-900" />
-                </div>
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Total Customers</p>
-                  <h4 className="mb-0 text-gray-900 dark:text-white">{customers.length}</h4>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-gray-600 dark:bg-gray-400 flex items-center justify-center">
                   <AlertCircle className="h-5 w-5 text-white dark:text-gray-900" />
                 </div>
@@ -140,10 +126,6 @@ export function RealDashboardPage({ tickets, employees, customers }: RealDashboa
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
               <h4 className="mb-1 text-gray-900 dark:text-white">Add Employee</h4>
               <p className="text-gray-600 dark:text-gray-400">Register a new team member</p>
-            </div>
-            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-              <h4 className="mb-1 text-gray-900 dark:text-white">Add Customer</h4>
-              <p className="text-gray-600 dark:text-gray-400">Register a new customer account</p>
             </div>
           </div>
         </Card>

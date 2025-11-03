@@ -9,7 +9,6 @@ const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "tickets", label: "Tickets", icon: Ticket },
   { id: "employees", label: "Employees", icon: Users },
-  { id: "customers", label: "Customers", icon: UserCircle },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 

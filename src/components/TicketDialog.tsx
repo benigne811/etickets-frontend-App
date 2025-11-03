@@ -4,7 +4,8 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Label } from "./ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Employee } from "./EmployeeDialog";
 
 export interface Ticket {
   id: string;
@@ -23,6 +24,7 @@ interface TicketDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: (ticket: Ticket) => void;
+  employees?: Employee[];
 }
 
 const statusColors: Record<Ticket['status'], string> = {
@@ -39,10 +41,18 @@ const priorityColors: Record<Ticket['priority'], string> = {
   "Urgent": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-export function TicketDialog({ ticket, open, onOpenChange, onUpdate }: TicketDialogProps) {
+export function TicketDialog({ ticket, open, onOpenChange, onUpdate, employees = [] }: TicketDialogProps) {
   const [editedTicket, setEditedTicket] = useState<Ticket | null>(ticket);
 
+  useEffect(() => {
+    if (ticket) {
+      setEditedTicket(ticket);
+    }
+  }, [ticket]);
+
   if (!ticket || !editedTicket) return null;
+
+  const activeEmployees = employees.filter(e => e.status === "Active");
 
   const handleSave = () => {
     if (onUpdate && editedTicket) {
@@ -118,11 +128,12 @@ export function TicketDialog({ ticket, open, onOpenChange, onUpdate }: TicketDia
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="John Doe">John Doe</SelectItem>
-                  <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-                  <SelectItem value="Mike Johnson">Mike Johnson</SelectItem>
-                  <SelectItem value="Sarah Wilson">Sarah Wilson</SelectItem>
                   <SelectItem value="Unassigned">Unassigned</SelectItem>
+                  {activeEmployees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.name}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

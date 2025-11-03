@@ -57,14 +57,42 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave, mode }: E
     }
   }, [employee, mode, open]);
 
+  const validateForm = (): boolean => {
+    if (!formData.name.trim()) {
+      return false;
+    }
+    if (!formData.email.trim() || !formData.email.includes("@")) {
+      return false;
+    }
+    if (!formData.phone.trim()) {
+      return false;
+    }
+    if (!formData.department) {
+      return false;
+    }
+    if (!formData.role.trim()) {
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === "edit" && employee) {
-      onSave({ ...formData, id: employee.id });
-    } else {
-      onSave(formData);
+    
+    if (!validateForm()) {
+      return;
     }
-    onOpenChange(false);
+
+    try {
+      if (mode === "edit" && employee) {
+        onSave({ ...formData, id: employee.id });
+      } else {
+        onSave(formData);
+      }
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error saving employee:", error);
+    }
   };
 
   return (

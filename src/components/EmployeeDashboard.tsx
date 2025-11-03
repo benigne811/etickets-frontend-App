@@ -257,7 +257,7 @@ export function EmployeeDashboard({ employee, tickets, onUpdateTicket, onLogout,
                       <TableRow className="hover:bg-transparent bg-gray-50 dark:bg-gray-800">
                         <TableHead className="text-gray-700 dark:text-gray-300">Ticket ID</TableHead>
                         <TableHead className="text-gray-700 dark:text-gray-300">Title</TableHead>
-                        <TableHead className="text-gray-700 dark:text-gray-300">Customer</TableHead>
+                        <TableHead className="text-gray-700 dark:text-gray-300">Reporter</TableHead>
                         <TableHead className="text-gray-700 dark:text-gray-300">Priority</TableHead>
                         <TableHead className="text-gray-700 dark:text-gray-300">Status</TableHead>
                         <TableHead className="text-gray-700 dark:text-gray-300">Created</TableHead>
